@@ -1,9 +1,9 @@
-require 'savon'
-
 module Incentco
   class SoapClient
+    require 'savon'
+    require_relative 'message.rb'
+    attr_reader :token
 
-    # CONSTANTS
     DEV_API_BASE= 'http://dev-api.incentco.com'
     PROGRAM_ID= 117592
     ACCESS_KEY= 43424
@@ -17,51 +17,50 @@ module Incentco
     ACCOUNTS_WSDL= "/account?wsdl"
     AWARD_LEVELS= "/award_levels?wsdl"
 
-
-    # constructor
     def initialize(base_url= DEV_API_BASE, user= USER, passwd= PASSWD, program_id= PROGRAM_ID, access_key= ACCESS_KEY, secret_key= SECRET_KEY)
       @base= base_url
       @program_id= program_id
       @access_key= access_key
       @secret_key= secret_key
-      @token= nil
-
       @token= get_token(user, passwd, program_id, access_key, secret_key)
-      puts "Token= #{@token}"
-
       @header= auth_header(@program_id, @access_key, @secret_key, @token)
-
-    end
-
-    def get_token(user, passwd, program_id, access_key, secret_key) 
-
-      header= auth_header(program_id, access_key, secret_key)
-      client = Savon.client(wsdl:@base + USERS_WSDL, namespaces:NAMESPACES, namespace_identifier:'env', soap_header:header)
-      puts "Program ID #{program_id}" 
-      #login_ok= client.call(:login, message: {'username'=>user, 'password'=>passwd});
-      #login_ok= client.call(:login_by_recursion, message: {'program_account_holder_id' => program_id, :attributes! => {'program_account_holder_id' => {'xsi:type' => 'xsd:int'}}, 'username'=>user, 'password'=>passwd});
-      login_ok= client.call(:login, message: {'username'=>user, 'password'=>passwd});
-      puts "Login Response: #{login_ok.body}"
-      @token= login_ok.body[:login_response][:return]
-
-    end
-
-    def auth_header(program_id, access_key, secret_key, token= nil) 
-      header= { 'access_key' => access_key, 'program_id' => program_id, 'secret_key' => secret_key }
-
-      if (token != nil)
-        header= { 'access_key' => access_key, 'program_id' => program_id, 'secret_key' => secret_key, 'token' => token }
-      end
-      
-      { 'ns1:Authenticate' => header }
     end
 
     def award_levels(program_id= @program_id)
-        client = Savon.client(wsdl:@base + AWARD_LEVELS, namespaces:NAMESPACES, namespace_identifier:'env', soap_header:@header)
+      client = Savon.client(wsdl:@base + AWARD_LEVELS, namespaces:NAMESPACES, namespace_identifier:'env', soap_header:@header)
+      response= client.call(:read_list_by_program, message:{'program_account_holder_id' => program_id, :attributes! =>
+                                                            {'program_account_holder_id' => {'xsi:type' => 'xsd:int'}
+                                                            }
+      })
+      response= client.call(:read_list_by_program, message: Message.new(program_account_holder_id: program_id).generate)
+      response.body.values[0][:return][:item]
+    end
 
-        response= client.call(:read_list_by_program, message:{'program_account_holder_id' => program_id, :attributes! => {'program_account_holder_id' => {'xsi:type' => 'xsd:int'} }})
-        response.body.values[0][:return][:item]
+    private
 
+    def get_client(url, namespace, header)
+      Savon.client(wsdl:url, namespaces:namespace, namespace_identifier:'env', soap_header:header) 
+    end
+
+    def api_call(call_name, message, path = '',  header=@header)
+      client = get_client(@base+path, NAMESPACE, header)
+      response = client.call(call_name.to_sym, message:message)
+      response.body.values[(call_name + '_response').to_sym][:return][:item]
+    end
+
+    def auth_header(program_id, access_key, secret_key, token = nil) 
+      header = { 'access_key' => access_key, 'program_id' => program_id, 'secret_key' => secret_key }
+      header['token'] = token if token
+      { 'ns1:Authenticate' => header }
+    end
+
+    def get_token(user, passwd, program_id, access_key, secret_key) 
+      header= auth_header(program_id, access_key, secret_key)
+      client = Savon.client(wsdl:@base + USERS_WSDL, namespaces:NAMESPACES, namespace_identifier:'env', soap_header:header)
+      puts "Program ID #{program_id}" 
+      login_ok= client.call(:login, message: {'username'=>user, 'password'=>passwd});
+      puts "Login Response: #{login_ok.body}"
+      login_ok.body[('login')][:return]
     end
 
   end
