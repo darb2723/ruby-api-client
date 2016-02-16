@@ -60,7 +60,7 @@ module Incentco
       puts "Program ID #{program_id}" 
       login_ok= client.call(:login, message: {'username'=>user, 'password'=>passwd});
       puts "Login Response: #{login_ok.body}"
-      login_ok.body[('login')][:return]
+      login_ok.body[('login_response').to_sym][:return];
     end
 
   end
