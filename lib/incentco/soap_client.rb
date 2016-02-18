@@ -36,6 +36,12 @@ module Incentco
       response.body.values[0][:return][:item]
     end
 
+    def invite_participant(user_info, program_id= @program_id, award_level= 1, unit_id= 0, fields= [])
+      client = Savon.client(wsdl:@base + USERS_WSDL, namespaces:NAMESPACES, namespace_identifier:'env', soap_header:@header)
+      message= Message.new(user_info: user_info, program_id: program_id, award_level: award_level, unit_id: unit_id, fields: fields)
+      client.call(:invite_participant, message: message.generate)
+    end
+
     private
 
     def get_client(url, namespace, header)

@@ -3,7 +3,8 @@ module Incentco
 
     TYPES = {
       String => 'xsd:string',
-      Fixnum => 'xsd:int'
+      Fixnum => 'xsd:int',
+      Hash => 'SOAP-ENC:Struct',
     }
 
     def initialize params={}
